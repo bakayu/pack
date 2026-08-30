@@ -9,6 +9,10 @@
 #define MAGIC_LEN 4
 #define FORMAT_VERSION 1
 
+#ifndef PACK_VERSION
+#define PACK_VERSION "dev"
+#endif
+
 static void usage(FILE *f) {
     fprintf(f, "usage:\n"
                "  pack -c <input> <archive.pack>   archive and compress a file "
@@ -20,7 +24,8 @@ static void usage(FILE *f) {
                "  --debug    print the frequency table, the huffman tree, the "
                "code table,\n"
                "             the archive entries and the compression ratio\n"
-               "  -h, --help show this message\n");
+               "  -h, --help show this message\n"
+               "  --version  show the version\n");
 }
 
 static void write_magic(FILE *out) {
@@ -131,6 +136,10 @@ int main(int argc, char **argv) {
             debug = 1;
         } else if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) {
             usage(stdout);
+            return 0;
+        } else if (strcmp(arg, "--version") == 0) {
+            printf("pack %s (archive format v%d)\n", PACK_VERSION,
+                   FORMAT_VERSION);
             return 0;
         } else if (strcmp(arg, "-c") == 0 || strcmp(arg, "-x") == 0) {
             if (mode != NULL && strcmp(mode, arg) != 0) {

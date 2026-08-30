@@ -73,7 +73,8 @@ static int archive_dir(const char *fs_path, const char *rel_path, FILE *out,
     }
     closedir(d);
 
-    qsort(names, count, sizeof(char *), name_cmp);
+    if (count > 1)
+        qsort(names, count, sizeof(char *), name_cmp);
 
     int rc = 0;
     for (size_t i = 0; i < count; i++) {

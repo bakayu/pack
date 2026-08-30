@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install clang-format
+        run: pip install clang-format==20.1.7
+
+      - name: Check C formatting
+        run: make check-format
+
+      - name: Lint the test script
+        run: shellcheck --severity=warning tests/run_tests.sh
+
+  test:
+    name: test (${{ matrix.cc }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang
+        if: matrix.cc == 'clang'
+        run: sudo apt-get update && sudo apt-get install -y clang
+
+      - name: Build
+        run: make CC=${{ matrix.cc }} EXTRA_CFLAGS=-Werror
+
+      - name: Unit tests
+        run: make CC=${{ matrix.cc }} EXTRA_CFLAGS=-Werror unit
+
+      - name: End-to-end tests
+        run: make CC=${{ matrix.cc }} EXTRA_CFLAGS=-Werror e2e
+
+      - name: Upload failing artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-tmp-${{ matrix.cc }}
+          path: tests/tmp
+          if-no-files-found: ignore
+
+  sanitizers:
+    name: sanitizers
+    runs-on: ubuntu-latest
+    env:
+      ASAN_OPTIONS: detect_leaks=1:abort_on_error=0
+      UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1:exitcode=1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with ASan and UBSan
+        run: |
+          make EXTRA_CFLAGS="-fsanitize=address,undefined \
+            -fno-omit-frame-pointer -fno-sanitize-recover=undefined"
+
+      - name: Unit tests
+        run: |
+          make EXTRA_CFLAGS="-fsanitize=address,undefined \
+            -fno-omit-frame-pointer -fno-sanitize-recover=undefined" unit
+
+      - name: End-to-end tests
+        run: ./tests/run_tests.sh
+
+  valgrind:
+    name: valgrind
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+
+      - name: Build
+        run: make && make build/test_units
+
+      - name: Unit tests under valgrind
+        run: valgrind --error-exitcode=1 --leak-check=full ./build/test_units
+
+      - name: Round trip under valgrind
+        run: |
+          valgrind --error-exitcode=1 --leak-check=full ./pack -c src pack.pack
+          valgrind --error-exitcode=1 --leak-check=full ./pack -x pack.pack out
+          diff -r src out/src

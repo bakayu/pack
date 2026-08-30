@@ -44,3 +44,7 @@ path      path_len bytes
 size      u64   0 for dirs
 payload   size bytes (files only)
 ```
+
+## LICENSE
+
+[MIT LICENSE](./LICENSE)

@@ -1,5 +1,6 @@
 cc := "gcc"
-cflags := "-Wall -Wextra -g -std=gnu11"
+version := `git describe --tags --always --dirty 2>/dev/null || echo dev`
+cflags := "-Wall -Wextra -g -std=gnu11 -DPACK_VERSION='\"" + version + "\"'"
 bin := "pack"
 
 build:
@@ -22,6 +23,12 @@ e2e: build
     ./tests/run_tests.sh
 
 test: unit e2e
+
+format:
+    clang-format -i src/*.c src/*.h tests/*.c
+
+check-format:
+    clang-format --dry-run -Werror src/*.c src/*.h tests/*.c
 
 clean:
     rm -rf build {{ bin }} tests/tmp
