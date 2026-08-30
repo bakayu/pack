@@ -53,3 +53,9 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# binary
+pack
+build/
+tests/tmp/
+*.pack
